@@ -1,0 +1,428 @@
+- [ ] check why convergence is so slow
+  - what happens with better IC?
+
+
+*Urgent*
+Likelihood:
+- thinning in likelihood is broken.  Do thinning proportional to
+  ice-thickness?
+- how to distribute between IV and thickness?
+- is the IV in the flat parts bad because of limiting alpha?
+
+
+*Misc*
+- [ ] get Svalbard data
+  - [ ] make loaders
+- [ ] fix some of the peninsula errors (to find them re-run forward-run-all-peninsula.jl)
+  - [ ] fix "ErrorException(\"Band 5 has no elements!\")"
+  - [ ] fix "ERROR AssertionError(\"!(any(dem.v[glaciermask] .== FILL))\")"
+- [X] restore save-function using JLD2 [[file:src/mcmc/tools.jl::JLD.readas(::Val{:FunctionSerializer})%20%3D%20(x...)%20->%20error("Storing%20functions%20with%20JLD%20is%20not%20supported")][here]]
+  - run inverse.jl
+  - figure out saving
+- [ ] check BJSON.jl
+- [ ] make test case to run inverse for a result from forward model.
+  - do this with the SHMIP glacier
+- [ ] get it running on Vierzack
+- [-] think about more complex h-extrapolation schemes for well-known
+  glaciers.
+- [ ] check whether using boxcar_M vs boxcar is dependent on window
+  size.
+- [ ] setting a ~pl.dataset_opts~ with a ~pl_kws~ is almost impossible.
+  Say I want to set pn.test=true.  Improve UX, probably with passing
+  through pn,pp,pm. -> Maybe making pl and then adjusting there is
+  ok, [[file:scripts/forward-run-all-peninsula.jl::pl.dataset_opts%5BGV.ParaData%5D%5B:pn%5D%5B:calc_boxcar_M%5D%20%3D%20false][see here]].
+- [X] do something about optimisation of posterior: now uses NLopt
+  which seems to work better
+- [ ] run MCMC over ITMIX glaciers
+- [ ] figure out a way to make glacier join at the divide
+  - run them at once?  Probably best.
+  - first step just use same 1D thickness.  Or just willy-nilly set it?
+- [ ] write pub
+- [ ] profit
+
+- [X] port to julia 0.6
+- [X] learn how to read shape-files VAWTools'
+- [X] ignore FILL within glacier mask
+- [X] read radar data of ITMIX
+- [X] find RGI numbers -> use Matthias' text files
+- [X] read GloGEM data
+- [X] read RGI data -> use Matthias' text files
+- [X] run model over ITMIX glaciers
+- [X] update MCMC stuff to use intrinsic values
+- [X] tidy up scripts: -> move stuff to functions
+- [X] make unit-tests from synt-glacier.  Also run some examples.
+  - [X] forward
+  - [X] inverse
+- [X] plotting, probably because of longer qtot
+  - plotinv2d_iverr, plotinv2d, plotinv1d_iverr, plotinv1d
+- [X] read peninsula data [[file:src/loaders/peninsula.jl::#%20Loading%20of%20Matthias'%20Peninsula%20data][here]]
+- [X] run peninsula:
+      Total time 9.27 minutes; average per glacier 0.346s.
+      256 out of 1606 glaciers had errors
+- [X] the data-cache in RAM does not work well because it is inside
+  the data-table.  Where should it go?  Maybe use some global store,
+  also see Base.crc32c.
+- [X] get rid of specialize_loadpara
+- [X] performance of make-bands is bad!  Using file-cache for part of
+  make_bands?  Or look into performance of it.  Takes forever...
+  - added flag to not calculated boxcar_M as that is very expensive
+    for large windows.
+- [X] do the GlacierID need to be parameterized on each glacier?
+  - there is this [[file:src/loaders/itmix.jl::function%20special_processing!(gid::ITMIXGlacier{:Austfonna},%20outline,%20dem,%20glaciermask,%20landmask,][here]] but that could be solved differently
+- [X] update to use latest OnlineStats [[file:src/mcmc/numerics.jl::else%20#%20https:/github.com/joshday/OnlineStats.jl/releases/tag/v0.8.0][here]]
+
+
+Model
+- [X] fix staggered grid issues.  Also think about middle of ice caps
+  and BC there.
+- [X] check sin vs tan in the SIA formula
+  - See Cuffey & Pat. p 295:  tan is probably slightly better
+- [ ] use un-even elevation bands, such that dx is approx. constant.
+- [ ] think about mass-conserving IV extrapolation for ice-caps
+- [ ] [[file:src/data-structs.jl::mean_tau_dist%20%3D%205.0%20#%20Kamb%20and%20Echelmeyer%201986%20(Fig%202)%20suggest%20a%20triangularly-weighted][update tau averaging]], [[file:src/OneD.jl::const%20bands_mean_fn%20%3D%20%5Bmean_over_bands,%20meanmean_over_bands%5D%5B2%5D][and here]]
+
+Bayesian model:
+- [ ] spatial correlation:
+  - error will be correlated as the errors in the data products are
+    correlated also
+
+Code
+- [ ] make the synthetic run into a test case
+  - use the forward model to create a thickness and infer that
+- [ ] think about loading of MCMC stuff
+- [-] work on more loaders: peninsula, GloGEM, Glamos, RGI
+  - [X] after delete data-loading.jl and mv data-loading-v2.jl data-loading.jl
+  - [X] do mix'n'match runs
+  - [ ] penisula
+  - [ ] more
+- [X] implement using forward model thickness and IV in synth-bench.jl
+- [X] make include("forward_austfonna.jl") run
+  - not a 100% but about as before
+  - figure out how to deal with nunataks
+- [X] make include("forward.jl") run
+- [X] implement mass conserving IV: [[*IV%20extrapolation%20to%202D/Mass%20conservation%20with%20IV][IV extrapolation to 2D/Mass conservation with IV]]
+  - flow into sea
+  - otherwise zero flux (except at lowest band outflow is allowed)
+  - run it with depth averaged speed
+- [X] cache bits needed for IV extrapolation
+  - Uaar 0.2s back to ~0.03 execution time
+- [X] run include("inverse_uaar.jl") and figure out whether it is working
+      correctly (it looks like it is working)
+
+Documentation:
+- [X] setup Documenter.jl
+- [-] write it
+
+Further steps:
+- [X] choose filter window according to glacier size (and thickness?)
+  - uses mean thickness as predicted by volume area method
+- [X] prior for dh/dt when unknown:
+  - assume some simple functional form similar to Peninsula?
+    - fit those hyperparameters?
+    - constraints: dh/dt in accum<=bdot, dh/dt in abl >=bdot
+      -> but those are in the flux-prior already
+  - then just the usual uncertainty on btilde?
+
+Run:
+- [ ] run Peninsula
+- [ ] get Svlabard off Frank
+- [ ] check Arctic DEM: [[mu4e:msgid:CAJ4Z42z-0WDKOLHAvCRe2ZOoY1ONjBhBSiJAYka6svcGxG90cw@mail.gmail.com][{CRYOLIST} Fwd: {Test} ArcticDEM Release 4: Updates and New Regions]]
+
+* ITMIX2
+** Bugs
+
+Running AustreGroenfjordbreen exp1 on af6cd4a8227999bf4016a497b0
+        From worker 2:  ========================================
+        From worker 2:  === continuous_glacier_logprior bug ===
+        From worker 2:  flux = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        From worker 2:  theta = [-0.722901, -1.21186, -0.784143, -0.235881, -1.01745, -0.331715, -0.288495, 0.607341, -4.75617, 0.30351]
+        From worker 2:  theta0 = thetas with n=10 and keys:
+        From worker 2:   (:btilde, :fsl, :temp, :dist_exp)
+
+Submission 6.10.2018
+│ Row │ gl                    │ mean_rmse │ max_err │ runs │
+├─────┼───────────────────────┼───────────┼─────────┼──────┤
+│ 1   │ Synthetic1            │ 36.0438   │ 139.0   │ 16   │ Ok
+│ 2   │ Unteraar              │ 63.05     │ 234.0   │ 16   │ Ok
+│ 3   │ Austfonna             │ 75.1375   │ 650.0   │ 16   │ so-so
+│ 4   │ AustreGroenfjordbreen │ 22.7562   │ 98.2    │ 16   │ Ok
+│ 5   │ Academy               │ 78.9      │ 344.0   │ 16   │ so-so
+│ 6   │ SouthGlacier          │ 20.975    │ 84.3    │ 16   │ Ok
+│ 7   │ Synthetic2            │ 24.7813   │ 116.0   │ 16   │ Ok
+│ 8   │ ChhotaShigri          │ 108.531   │ 500.0   │ 16   │ pretty bad, too much flux?
+│ 9   │ Washmawapta           │ 21.7917   │ 120.0   │ 12   │ Ok. No fsl fit
+
+- check C
+
+
+
+* Results
+** Forward-inversion exercises on SHMIP Bench-like glacier
+[[./scripts/output/fwd-inv/vierzacks/]]
+
+- temp and fsl often correlate strongly, for h&IV, for IV only and h only
+  runs.  Eg:
+  - (shell-command "fehs scripts/output/fwd-inv/vierzacks/*run-h_md-normal_fsl-*_temp--10.0_sigma-0.5_sans-na--thetas.png")
+  - this works ok though:
+    (shell-command "fehs scripts/output/fwd-inv/vierzacks/*run-h_iv_md-normal_fsl-0.5_temp--0.5_sigma-0.5_sans-na--thetas.png")
+  - this is atrocious:
+    (shell-command "fehs scripts/output/fwd-inv/vierzacks/*run-iv_md-normal_fsl-0.5_temp--0.5_sigma-5.0_sans-na--thetas.png")
+
+  - -> this means that the fits of fsl and temp are often non-conclusive- Conversely, fitting only one of them gives good results.  -> run again
+  with h and IV predictions and see what they say.
+
+TODO:
+- use h and iv as metric (jez)
+
+* Svalbard application
+Steps:
+- run over glacier with thickness
+  - check their parameters
+  - fit all of them at once
+- use those parameters as priors for the others
+  - this necessitates using a kernel density thingy
+- run over all with full data
+  - which means that all data is there and has sufficient resolution
+    --> only bigger glacier
+
+
+* TODO Data loading.
+Note that there maybe several data-sets available
+for one glacier, say DEMs from different years.  Each data-product
+should have a year or year-range associated with it.
+
+Data loading steps:
+- [ ] other various parameters: really any parameter which are fitted,
+  should be loadable.
+- [ ] ideally all parameters come with their probability
+  distributions, so they can be used as priors.
+  - [ ] what about correlated priors? [[https://doingbayesiandataanalysis.blogspot.ch/2014/08/how-to-use-mcmc-posterior-as-prior-for.html][good blog on this]]
+  - [ ] think about errors for the files and how to encode it
+
+* Report #3:
+
+- [-] run Uaar
+- [ ] Starbuck
+- [ ] Flask
+- [ ] Austfonna
+  - load radar data
+- [X] plot with errors
+- [X] plot along flow line, binned errors
+- runs <2016-12-14 Wed>
+| tmux | gl | run    | sigma_ppdf |   |
+|------+----+--------+------------+---|
+|    5 | ua | :iv2   |            |   |
+|    5 | ua | :iv_h  |            |   |
+|    6 | a  | :iv2   |      0.005 |   |
+|    7 | f  | :iv2   |            |   |
+|    7 | f  | :h_iv2 |            |   |
+|    8 | s  | :iv2   |            |   |
+|    8 | s  | :h_iv2 |            |   |
+
+- runs <2016-12-16 Fri>
+| tmux | gl | run    | sigma_ppdf |   |
+|------+----+--------+------------+---|
+|    5 | ua | :iv2   |            |   |
+|    5 | ua | :iv_h  |            |   |
+|    7 | f  | :iv2   |            |   |
+|    7 | f  | :h_iv2 |            |   |
+|    8 | s  | :iv2   |            |   |
+|    8 | s  | :h_iv2 |            |   |
+
+
+
+
+Runs:
+- [ ] find out difference between constrained temp and not constrained temp.
+- [ ] run with just a few ice-thickness point-measurements
+
+Tools:
+
+- [ ] fix inpoly problem in commit eccb7044c026929
+  - run scripts/forward_uaar.jl and do
+    ~heatmap(dem.x, dem.y, gl.mask')~ to see the problem.  After fix
+    [[file:src/data-loading.jl::#%20TODO:%20this%20is%20needed%20otherwise%20inpoly%20return%20crap!][file:src/data-loading.jl::# TODO: this is needed otherwise inpoly return crap!]]
+
+ToDo inverse model:
+
+- [X] start
+
+- [X] save model runs
+
+- [X] refactor:
+  - make a pb = BPara type holding all Baysian/MCMC para
+  - fit(pb) would run it all
+
+- [X] use gaussian processes http://papers.nips.cc/paper/3414-efficient-sampling-for-gaussian-process-inference-using-control-variables.pdf
+  -> fudging it instead
+
+- [ ] fit sigmas also
+
+- [X] fit iv_h_exp
+
+- [ ] think about smoothly joining up adjoining catchments
+- [X] calculate variance, mean and higher moments of hs2d, ivs2d on
+  the fly:
+  - https://github.com/joshday/OnlineStats.jl
+  - https://people.xiph.org/~tterribe/notes/homs.html
+  - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
+  - also https://en.wikipedia.org/wiki/Skewness and
+    https://en.wikipedia.org/wiki/Kurtosis (tails)
+  - how to get a pdf from the moments at [[https://mathoverflow.net/questions/141743/what-is-the-maximum-entropy-distribution-given-mean-variance-skewness-and-kur][math-overflow]].
+
+- [X] allow arbitrary functions for fsl, fBtilde
+  - fbtilde should be chosen such that qtot(end)==0.  I.e. logprior(fbtilde)
+    narrow Gaussian around 0
+
+- [ ] add an error-term for h deeper than flotation
+
+- [ ] 1D plotting
+- [ ] 2D uncertainty plotting
+
+- [ ] make the prior handling less complicated.  In particular merge
+  with the SomeData entries in Glacier
+
+
+ToDO Fwd-ModelL
+- [ ] ponder staggered vs non-staggered variables
+  - set BC on thickness at the top/bottom
+- [ ] profile make_bands
+- [ ] automatic check whether bands need updating
+
+- [ ] on NaN and Inf return something but no error.
+
+- [X] drop shape factor because flow-line models are different,
+  really.  This is closer to slab-like setup.
+
+- [ ] make MPara more general by allowing arbitrary functions or some
+  such.  Or at least piecewise linear functions?
+
+- [ ] thickness extrapolation: think about distinguishing between
+  valley and non-valley part.  Point in case is thick ice for Flask
+
+- [X] tidy up model call-signature
+
+- [X] the band-widths are pretty noisy, should they be filtered?
+      -> done [[file:src/data-structs.jl::window_width_smooth%20%3D%2050][data-structs.jl::window_width_smooth = 50]]
+- [-] iv
+  - [X] `calc_iv_masscons` working
+  - [ ] `calc_iv` not working
+    - off by some orders of magnitude!
+    - but it also seems that [[file:src/OneD.jl::function%20calc_iv(gl::Glacier,%20gb::Bands,%20hs,%20tau_mean,%20pp::Phys,%20pm::MPara)][calc_iv]] is inherently very noisy.
+  - [X] extrapolation to 2D: +/- working now
+- [X] why is tau_local less on average than tau_mean? -> fixed in f7989c463b9b
+- [X] plot radar and interpolate hs2d
+- [X] finish NaN -> masked transition: check boxcar filter
+- [X] smoothing of h
+- [X] fix dist_to_margin: add it back into ~extrapolate~ and fix in
+  ~dist_to_margin~.
+- [X] tau, looks ok
+- [X] radar loading
+- [X] check volume conservation of extrapolation: exact if no smoothing
+      and below-sea-level is applied.
+- [X] check 32 vs 64 bit float: give same result for Flask.  (32bit is
+      a tiny bit faster)
+- [X] check convergence without relaxation.  Matthias used relaxation
+  too, but less: [[file:~/projects/ESA-ice-volume/GlacierVolumes/wave/thick_mhuss.pro::dth%3Dthick-ts%20&%20thick%3Dts%2Bfact*dth][here]].  Maybe check convergence there without
+  relaxation?
+  - much better if I average h as well over several
+    ice-thicknesses. See [[file:src/OneD.jl::function%20meanmean_over_bands(var,%20hs,%20gb,%20ib,%20dist)][meanmean_over_bands]]
+- [X] why so thin at the outlet of Flask?
+      -> because of flotation criterion.  But the surface DEM looks
+         too thin at the margin!
+- [ ] update to us sin.(x) syntax
+
+* DONE IV extrapolation to 2D/Mass conservation with IV
+- think about an approach to calculate the flux from one band to the
+  next according to IV.  Use this to get a consistent fsl and h.
+  Garry does something like this in his paper. Strategy:
+  - get all cells with border onto cells of lower elevation
+    band.
+  - calculate vector flux (and scalar flux, i.e. assume all flux is
+    into next band, which is "exact" if flow is perpendicular to
+    elevation contours).
+    Simple set of rules (to be checked):
+    - 1 edge: q = u*dx*h, 2: q = sqrt(2)*u*dx*h, 3: ==1, 4: q=0
+    - alternatively, do it properly using downhill as flow direction
+      (probably not much more expensive)
+    - either can be encoded in a sparse matrix: q = qm * (u*h)
+  - two errors:
+    - magnitude
+    - check flow direction against local slope.  If much off this
+      will indicate either "model breakdown" or "measurement error".
+- above may have problems with "pathological" cells, e.g. islands of
+  one elevation band in another.  However, they should be few and thus
+  have little impact.
+
+Old note:
+- [ ] mass-flux conserving IV extrapolation:
+  - find band-cells on band-edge
+  - find lower and upper band-cells
+  - find flux:
+    - direction in surface slope
+  - check Garry, they do this
+
+* TODO Sensitivity of errors/missing input data
+Where do remote sensing (and other data) need to be improved?
+
+- https://stats.stackexchange.com/questions/91344/advice-on-sensitivity-analysis-for-priors-in-bayesian-statistics
+- https://en.wikipedia.org/wiki/Bayesian_experimental_design
+- https://en.wikipedia.org/wiki/Optimal_design
+  - https://arxiv.org/pdf/1506.00053.pdf
+  - https://academic.oup.com/bioinformatics/article-lookup/doi/10.1093/bioinformatics/bts092
+
+* Gaussian process
+
+- http://dan.iel.fm/george/current/user/model/
+  - To fit GP, he uses straight emcee, nothing else as far as I can
+    tell.  The stretch move does some mixing and may indeed be similar
+    to continuous deformation.
+- http://www.aueb.gr/users/mtitsias/papers/ILDMChapter09.pdf
+  - Describe something which I had in mind (p14): "Finally, another simple
+    approach for sampling in a GP model is to use the underrelaxation
+    proposal distribution (Adams et al., 2009; Neal, 1998) ..."  But
+    doesn't quite use the continuous deformation.
+- [[../attachments/Caers-2007.pdf]] Gradual deformation
+- http://papers.nips.cc/paper/3414-efficient-sampling-for-gaussian-process-inference-using-control-variables.pdf
+- PyMC gp module:
+  - what do they use?
+
+* Correlated measurements
+- correlated prior [[https://doingbayesiandataanalysis.blogspot.ch/2014/08/how-to-use-mcmc-posterior-as-prior-for.html][good blog on this]]
+- in an ideal case, the errors should be uncorrelated even if
+  measurements are well correlated
+- super example: http://dan.iel.fm/george/current/user/model/
+- co-variance function: https://en.wikipedia.org/wiki/Mat%C3%A9rn_covariance_function
+
+* Performance
+- store extrapolation stuff
+- simd?
+
+* MCMC
+
+Needed for MCMC is a function of form
+
+#+BEGIN_SRC julia
+out = f(para)
+#+END_SRC
+* Refs
+- http://www.sciencedirect.com/science/article/pii/S0167947301000846
+- http://www.stat.columbia.edu/~gelman/research/published/determ20.pdf
+  deterministic - stochastic
+- http://www.earthsurfacehydrology.nl/wp-content/uploads/2012/01/Syllabus_Stochastic-Hydrology.pdf
+* Overfitting
+I don't think I'm overfitting because I only have a few parameters
+- https://stats.stackexchange.com/questions/82664/bayesian-vs-mle-overfitting-problem
+-
+* Regional scale application
+- make a transfer function ~f(theta1, gl1, gl2) -> theta2~
+  where gl1 & gl2 contain all sorts of glacier-related parameters:
+  - distance, exposition, continentality, latitude, altitude, size,
+    etc.
+  - theta1 contains the fitted parameters of gl1.  Maybe means, maybe
+    all?
+- fit ~f~ using the glaciers with available thickness data
+- use it to make priors for other glaciers
+* Refs
+Glacier dragon:
+http://pedroespina.com/Climbing/Road_Trips/Dragons/Dragon-sm.html

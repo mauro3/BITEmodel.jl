@@ -1,0 +1,29 @@
+julia 0.6
+Parameters
+Plots
+StatPlots
+Interpolations
+OnlineStats
+Compat
+KissMCMC
+StatsBase
+Proj4
+DataStructures
+SmoothingSplines
+
+Optim
+VAWTools
+DocStringExtensions
+ZipFile
+Roots
+NLopt
+CodecZlib
+Shapefile
+DataFrames
+
+# store/load
+FileIO
+CSVFiles
+BSON
+JLD
+JLD2
