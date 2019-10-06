@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Data Loading · BITE-Model</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="assets/documenter.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link href="assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><a href="index.html"><img class="logo" src="assets/logo.png" alt="BITE-Model logo"/></a><h1>BITE-Model</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="search.html"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="index.html">BITE-Model: Bayesian Ice Thickness Estimation Model</a></li><li class="current"><a class="toctext" href="data-loading.html">Data Loading</a><ul class="internal"><li class="toplevel"><a class="toctext" href="#Basic-operation-1">Basic operation</a></li><li class="toplevel"><a class="toctext" href="#Customisation-of-the-loading-process-1">Customisation of the loading process</a></li><li><a class="toctext" href="#Setting-various-options-with-LoadPara-1">Setting various options with <code>LoadPara</code></a></li><li><a class="toctext" href="#Choosing-data-sources-manually-1">Choosing data-sources manually</a></li><li class="toplevel"><a class="toctext" href="#Under-the-hood-1">Under the hood</a></li></ul></li><li><a class="toctext" href="forward.html">Forward Model</a></li><li><a class="toctext" href="inverse.html">Inverse Model</a></li><li><a class="toctext" href="postproc.html">Post-processing and Plotting</a></li><li><a class="toctext" href="api.html">API</a></li><li><a class="toctext" href="index-index.html">Index</a></li></ul></nav><article id="docs"><header><nav><ul><li><a href="data-loading.html">Data Loading</a></li></ul><a class="edit-page" href="https://github.com/mauro3/BITEmodel.jl/blob/master/docs/src/data-loading.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Data Loading</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Data-Loading-1" href="#Data-Loading-1">Data Loading</a></h1><p>As usual, data loading is the (almost) most complex part of the model. It tries to be fairly general, maybe too much so.  (Probably, this should become its own package at some point.)</p><p>All the data needed by the model are encoded in the subtypes of <a href="@ref"><code>DataKind</code></a>, thus listing both at once:</p><pre><code class="language-julia">abstract DataKind
+# glacier outline
+abstract OutlineData &lt;: DataKind
+# misc model parameters
+abstract ParaData &lt;: DataKind
+# DEM 2D
+abstract DEMData &lt;: DataKind
+# ice surface velocity
+abstract IVData &lt;: DataKind
+# Surface mass balance
+abstract BdotData &lt;: DataKind
+# dh/dt data
+abstract DhdtData &lt;: DataKind
+# basal sliding fraction
+abstract FslData &lt;: DataKind
+# ice temperature
+abstract TempData &lt;: DataKind
+# ice thickness (e.g. radar or nothing)
+abstract ThicknessData &lt;: DataKind
+# ice flux at terminus
+abstract TerminusFluxData &lt;: DataKind</code></pre><p>Most of these data can be 2D, 1D or 0D.  Except the DEM and outline need to be 2D, which are (currently) regarded as fixed, i.e. as having no error (wrong but makes life much easier).  All the others quantities can/should have an error.  Note that whilst some data will come from measurements or other, external models, some maybe just generated (for instance ice temperature).</p><p>One data-set is then encoded by <a href="@ref"><code>DataSet{DK&lt;:DataKind, LOADER}</code></a>, where <code>LOADER</code> is a symbol representing the used loader function (or synthesising function).</p><p>TODO: think about mask vs outlines and other such overlapping cases.</p><h1><a class="nav-anchor" id="Basic-operation-1" href="#Basic-operation-1">Basic operation</a></h1><p>The basic operation is as follows.</p><p>Take:</p><ul><li><p><code>gid</code> a glacier <a href="@ref"><code>GlacierID</code></a>, and</p></li><li><p><code>pl</code> load parameters <a href="@ref"><code>LoadPara</code></a></p></li></ul><p>for example:</p><pre><code class="language-julia"># choosing Unteraar Glacier from the ITMIX dataset:
+gid = GV.ITMIXGlacier{:Unteraar}()
+pl = GV.LoadPara()</code></pre><p>Now use <a href="@ref"><code>load_glacier!</code></a> to load all the data and parameters:</p><pre><code class="language-julia">gl,pp,pm,pn = load_glacier!(dt,pl,pp,pm)</code></pre><p>which will load a default set of data for a specific glacier.</p><p>This is all which is needed to run the forward and inverse model, see <a href="forward.html#Forward-Model-1">Forward Model</a> and almost all for the <a href="inverse.html#Inverse-Model-1">Inverse Model</a>.</p><pre><code class="language-julia">hs1d, taus1d, ivs1d, hs2d, taus2d, ivs2d, taus1d_l, vol_ratio, gb =
+        GV.fwdm(gl, pp, pm, pn)</code></pre><h1><a class="nav-anchor" id="Customisation-of-the-loading-process-1" href="#Customisation-of-the-loading-process-1">Customisation of the loading process</a></h1><p>There are several places in which the loading process can be adjusted.  In order of increasing complexity:</p><h2><a class="nav-anchor" id="Setting-various-options-with-LoadPara-1" href="#Setting-various-options-with-LoadPara-1">Setting various options with <code>LoadPara</code></a></h2><p>During the load process there are several aspects which can be customized.</p><p><a href="@ref"><code>LoadPara</code></a> customization:</p><ul><li><p><code>dataset_opts</code> holds options for the various <code>load!</code> methods which are called to load the actual data.  This is probably the most used customization.</p></li><li><p><code>data_root</code> change path to data directory</p></li><li><p><code>update_cache</code> if <code>==true</code>, then force an update of the cached data</p></li></ul><p>Not settable/used fields of <a href="@ref"><code>LoadPara</code></a> are:</p><ul><li><p><code>cache_dir</code> data-derivatives which are expensive to calculate are cached in this folder (e.g. glacier-masks)</p></li><li><p><code>target_proj</code> not used yet, but envisaged that data is re-projected into this projection (TODO)</p></li></ul><p>Example of setting the standard-deviation by hand for a few measurement types, as well as setting a few setting in the model-parameters <a href="@ref"><code>MPara</code></a>:</p><pre><code class="language-julia">gid = ITMIXGlacier{:Unteraar}()
+pl = GV.LoadPara(update_cache=false)
+# customize pl:
+pl.data_root = joinpath(pl.data_root,&quot;ITMIX&quot;)
+for (k,v) in Dict(GV.ThicknessData=&gt;10.0,
+                  GV.BdotData=&gt;0.2,
+                  GV.DhdtData=&gt;0.2,
+                  GV.IVData=&gt;1.0)
+    pl.dataset_opts[k][:sigma]=v
+end
+pl.dataset_opts[GV.ParaData][:pm] = Dict(
+    :bandsize =&gt; 30,
+    :window_dem_smooth=&gt;100,
+    :window_width_smooth=&gt;100, # can make a noisy tau
+    :window=&gt;100.0)
+
+# Now load/create the glacier and parameters
+gl,pp,pm,pn = load_glacier!(gid,pl)</code></pre><h2><a class="nav-anchor" id="Choosing-data-sources-manually-1" href="#Choosing-data-sources-manually-1">Choosing data-sources manually</a></h2><p>Instead of above, different data-sets can be chosen.  Consider:</p><pre><code class="language-julia">dt = make_datatable(gid, pl)
+gl,pp,pm,pn = load_glacier!(dt,pl)</code></pre><p>which is equivalent to <code>gl,pp,pm,pn = load_glacier!(gid,pl)</code>. However, now the <a href="@ref"><code>DataTable</code></a> <code>dt</code> can be manipulated before being passed to <code>load_glacier!</code>, which allows different datasource to be selected.</p><p>The <a href="@ref"><code>make_datatable</code></a> function creates a standard datatable for a given glacier, e.g. for an ITMIX glacier it will select all the available ITMIX data.  If instead we want to use a different <span>$\dot{b}$</span> (say), then we could do:</p><pre><code class="language-julia">dt = make_datatable(gid, pl)
+# swap out the bdot
+bdot_synth = GV.DataSet{GV.BdotData, GV.SyntheticBenchLoader}([&quot;&quot;],
+                                      pl.dataset_opts[GV.BdotData],
+                                                    (Date(),Date()))
+dt = GV.DataTable(dt, bdot=bdot_synth)
+gl,pp,pm,pn = load_glacier!(dt,pl)</code></pre><h1><a class="nav-anchor" id="Under-the-hood-1" href="#Under-the-hood-1">Under the hood</a></h1><p>To accommodate as many different file types as possible, as well as accommodating synthetic data, etc. the <a href="@ref"><code>load_glacier!</code></a> function calls into many different methods of the <a href="@ref"><code>load!</code></a> function which has the following signature:</p><pre><code class="language-julia">load!(ds::DataSet{&lt;:DataKind, :Loader}, gid::GlacierID, more_args...)</code></pre><p>The dispatch happens with with first one or two arguments: i.e. a <a href="@ref"><code>DataSet</code></a> (parameterized on a <code>DataKind</code> and a <code>Loader</code>), potentially additionally dispatching on a glacier-ID too.  An example, returning the parameters structures, looks like so:</p><pre><code class="language-julia">function load!(ds::DataSet{ParaData}, gid::GlacierID,
+               pp::Phys=Phys(), pm::MPara=MPara(), pn::Num=Num())
+    kwargs = ds.opts
+    pp = Phys(pp; get(kwargs, :pp, Dict{Symbol,Any}())...)
+    pm = MPara(pm; get(kwargs, :pm, Dict{Symbol,Any}())...)
+    pn = Num(pn; get(kwargs, :pn, Dict{Symbol,Any}())...)
+    return pp::Phys, pm::MPara, pn::Num
+end</code></pre><p>Of note is how the options are passed to the constructors <code>Phys</code>, etc., i.e. they are the field <code>opts</code> of <a href="@ref"><code>DataSet</code></a>.  Which in terms gets populated from the field <code>dataset_opts</code> is in the <code>LoadPara</code> instance which was used to create the dataset.</p><p>Steps:</p><ul><li><p>create <a href="@ref"><code>load!</code></a> functions</p></li><li><p>create <a href="@ref"><code>make_datatable</code></a> to create a useful datatable</p></li><li><p>add a method to <a href="@ref"><code>special_processing!</code></a>, if needed.</p></li></ul><footer><hr/><a class="previous" href="index.html"><span class="direction">Previous</span><span class="title">BITE-Model: Bayesian Ice Thickness Estimation Model</span></a><a class="next" href="forward.html"><span class="direction">Next</span><span class="title">Forward Model</span></a></footer></article></body></html>
